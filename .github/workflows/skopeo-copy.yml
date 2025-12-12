@@ -72,7 +72,7 @@ jobs:
             platform=$(echo "$line" | awk -F'--platform[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
             if [[ -z "$platform" ]]; then
                 platform_prefix=""
-                platform_opt=""
+                platform_opt="--override-os=linux --override-arch=amd64"
             else
                 platform_prefix="${platform//\//_}_"
                 platform_opt="--override-arch=$(echo $platform | cut -d/ -f2) --override-os=$(echo $platform | cut -d/ -f1)"
@@ -104,7 +104,7 @@ jobs:
             # 执行 skopeo copy
             # ============================
             echo "===== skopeo copy: $image → $new_image ====="
-            skopeo copy docker://$image docker://$new_image
+            skopeo copy $platform_opt docker://$image docker://$new_image
 
             echo "镜像复制完成：$image → $new_image"
             echo "========================================================"
