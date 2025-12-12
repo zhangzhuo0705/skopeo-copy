@@ -1,0 +1,2 @@
+#支持私库
+ghcr.io/coreweave/nccl-tests:12.9.1-devel-ubuntu22.04-nccl2.28.7-1-6b47463
