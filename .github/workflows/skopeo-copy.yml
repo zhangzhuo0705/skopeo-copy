@@ -23,6 +23,8 @@ jobs:
       - name: Copy image with Skopeo
         run: |
           skopeo login -u $ALIYUN_REGISTRY_USER -p $ALIYUN_REGISTRY_PASSWORD $ALIYUN_REGISTRY
+          ls -l 
+          pwd
           # 镜像同步处理
           declare -A duplicate_images
           declare -A temp_map
