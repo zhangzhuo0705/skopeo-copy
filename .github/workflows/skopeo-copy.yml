@@ -96,6 +96,7 @@ jobs:
             # 执行 skopeo copy
             # ============================
             echo "===== skopeo copy: $image → $new_image ====="
+            echo $platform_opt
             skopeo copy $platform_opt docker://$image docker://$new_image
           
             echo "镜像复制完成：$image → $new_image"
