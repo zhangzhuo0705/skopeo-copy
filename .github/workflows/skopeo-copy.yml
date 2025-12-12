@@ -30,30 +30,30 @@ jobs:
           declare -A duplicate_images
           declare -A temp_map
 
-          ##############################################
-          ### 第一段：分析重复镜像名
-          ##############################################
-          while IFS= read -r line || [ -n "$line" ]; do
-            [[ -z "$line" ]] && continue
-            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+          # ##############################################
+          # ### 第一段：分析重复镜像名
+          # ##############################################
+          # while IFS= read -r line || [ -n "$line" ]; do
+          #   [[ -z "$line" ]] && continue
+          #   [[ "$line" =~ ^[[:space:]]*# ]] && continue
 
-            image=$(echo "$line" | awk '{print $NF}')
-            image="${image%%@*}"
+          #   image=$(echo "$line" | awk '{print $NF}')
+          #   image="${image%%@*}"
 
-            image_name_tag=$(echo "$image" | awk -F'/' '{print $NF}')
-            image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
-            name_space=$(echo "$image" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
-            name_space="${name_space}_"
+          #   image_name_tag=$(echo "$image" | awk -F'/' '{print $NF}')
+          #   image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
+          #   name_space=$(echo "$image" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
+          #   name_space="${name_space}_"
 
-            if [[ -n "${temp_map[$image_name]}" ]]; then
-                if [[ "${temp_map[$image_name]}" != "$name_space" ]]; then
-                    duplicate_images[$image_name]="true"
-                fi
-            else
-                temp_map[$image_name]=$name_space
-            fi
+          #   if [[ -n "${temp_map[$image_name]}" ]]; then
+          #       if [[ "${temp_map[$image_name]}" != "$name_space" ]]; then
+          #           duplicate_images[$image_name]="true"
+          #       fi
+          #   else
+          #       temp_map[$image_name]=$name_space
+          #   fi
 
-          done < $GITHUB_WORKSPACE/images.txt
+          # done < $GITHUB_WORKSPACE/images.txt
 
 
           ##############################################
@@ -63,50 +63,41 @@ jobs:
           while IFS= read -r line || [ -n "$line" ]; do
             [[ -z "$line" ]] && continue
             [[ "$line" =~ ^[[:space:]]*# ]] && continue
-
-            image=$(echo "$line" | awk '{print $NF}')
-
+          
+            image=$(echo "$line" | sed 's/--platform=[^ ]* //')
+          
             # ============================
-            #  获取 platform
+            #  处理多架构镜像
             # ============================
             platform=$(echo "$line" | awk -F'--platform[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
             if [[ -z "$platform" ]]; then
                 platform_prefix=""
                 platform_opt="--override-os=linux --override-arch=amd64"
             else
-                platform_prefix="${platform//\//_}_"
-                platform_opt="--override-arch=$(echo $platform | cut -d/ -f2) --override-os=$(echo $platform | cut -d/ -f1)"
-            fi
-            echo $platform_opt
-
-            # ============================
-            # 解析 image 名称
-            # ============================
-            image_name_tag=$(echo "$image" | awk -F'/' '{print $NF}')
-            image_name_tag="${image_name_tag%%@*}"
-            image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
-
-            name_space=$(echo "$image" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
-
-            name_space_prefix=""
-            if [[ -n "${duplicate_images[$image_name]}" ]]; then
-                if [[ -n "$name_space" ]]; then
-                    name_space_prefix="${name_space}_"
+                if echo "$platform" | awk -F'/' '{exit !(NF==3)}'; then
+                   platform_prefix="${platform//\//_}_"
+                   platform_opt="--override-arch=$(echo $platform | cut -d/ -f2) --override-os=$(echo $platform | cut -d/ -f1) --override-variant=$(echo $platform | cut -d/ -f3)"
+                else
+                   platform_prefix="${platform//\//_}_"
+                   platform_opt="--override-arch=$(echo $platform | cut -d/ -f2) --override-os=$(echo $platform | cut -d/ -f1)"
                 fi
             fi
-
             # ============================
-            # 目标镜像名
+            # 获取原本的镜像名称
             # ============================
-            new_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/${platform_prefix}${name_space_prefix}${image_name_tag}"
-
+            image_name=$(echo "$image" | awk -F'/' '{print $NF}')
+          
+            # ============================
+            # 生产新的镜像名称
+            # ============================
+            new_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/${image_name}"
+          
             # ============================
             # 执行 skopeo copy
             # ============================
             echo "===== skopeo copy: $image → $new_image ====="
-            skopeo copy $platform_opt docker://$image docker://$new_image
-
+            echo "skopeo copy $platform_opt docker://$image docker://$new_image"
+          
             echo "镜像复制完成：$image → $new_image"
             echo "========================================================"
-
           done < $GITHUB_WORKSPACE/images.txt
